@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cmath>
+#include <functional>
 
 // Node structure for doubly linked list
 struct Node {
@@ -73,13 +74,22 @@ class HashTable {
     DoublyLinkedList* table;
     int capacity;
     int size;
+    std::function<int(int, int)> hashFunction;  // Hash function as a std::function
 
-    // Hash function using both multiplication and division method
-    int hashFunction(int key) {
-        float A = 0.6180339887; // Fractional part of the golden ratio
-        int hash1 = floor(capacity * (key * A - floor(key * A)));
-        int hash2 = key % capacity;
-        return (hash1 + hash2) % capacity; // Combine both methods
+public:
+    HashTable(int cap = 8, std::function<int(int, int)> func = nullptr) : capacity(cap), size(0) {
+        table = new DoublyLinkedList[capacity];
+        if (func) {
+            hashFunction = func;
+        } else {
+            // Default hash function if none provided
+            hashFunction = [this](int key, int cap) {
+                float A = 0.6180339887; // Fractional part of the golden ratio
+                int hash1 = std::floor(cap * (key * A - std::floor(key * A)));
+                int hash2 = key % cap;
+                return (hash1 + hash2) % cap;
+            };
+        }
     }
 
     // Resize the hash table
@@ -88,7 +98,7 @@ class HashTable {
         for (int i = 0; i < capacity; i++) {
             Node* current = table[i].head;
             while (current) {
-                int new_index = hashFunction(current->key);
+                int new_index = hashFunction(current->key, new_capacity);
                 new_table[new_index].append(current->key, current->value);
                 current = current->next;
             }
@@ -98,21 +108,16 @@ class HashTable {
         capacity = new_capacity;
     }
 
-public:
-    HashTable(int cap = 8) : capacity(cap), size(0) {
-        table = new DoublyLinkedList[capacity];
-    }
-
     // Insert key-value pair
     void insert(int key, int value) {
-        int index = hashFunction(key);
+        int index = hashFunction(key, capacity);
         Node* node = table[index].find(key);
         if (node) {
             node->value = value; // Update existing key
         } else {
             if (size == capacity) {
                 resize(capacity * 2); // Double size
-                index = hashFunction(key); // Re-hash the key
+                index = hashFunction(key, capacity); // Re-hash the key
             }
             table[index].append(key, value);
             size++;
@@ -121,7 +126,7 @@ public:
 
     // Delete key
     void remove(int key) {
-        int index = hashFunction(key);
+        int index = hashFunction(key, capacity);
         Node* node = table[index].find(key);
         if (node) {
             table[index].remove(node);
@@ -134,7 +139,7 @@ public:
 
     // Get value by key
     int get(int key) {
-        int index = hashFunction(key);
+        int index = hashFunction(key, capacity);
         Node* node = table[index].find(key);
         if (node) {
             return node->value;
